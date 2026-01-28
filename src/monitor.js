@@ -120,7 +120,7 @@ function generateMessage(info) {
   ].join("\n")
 }
 
-async function sendNotification(message) {
+async function sendNotification(message, currentEndDate) {
   if (!TELEGRAM_BOT_TOKEN)
     throw Error("❌ Missing telegram bot token or chat id.")
   if (!TELEGRAM_CHAT_ID) throw Error("❌ Missing telegram chat id.")
@@ -128,10 +128,13 @@ async function sendNotification(message) {
   console.log("🌀 Sending notification...")
 
   const lastMessage = loadLastMessage() || {}
+  const isTimeChanged = lastMessage.end_date && lastMessage.end_date !== currentEndDate
+  const messageIdToEdit = isTimeChanged ? undefined : lastMessage.message_id
+
   try {
     const response = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${
-        lastMessage.message_id ? "editMessageText" : "sendMessage"
+        messageIdToEdit ? "editMessageText" : "sendMessage"
       }`,
       {
         method: "POST",
@@ -140,7 +143,7 @@ async function sendNotification(message) {
           chat_id: TELEGRAM_CHAT_ID,
           text: message,
           parse_mode: "HTML",
-          message_id: lastMessage.message_id ?? undefined,
+          message_id: messageIdToEdit,
         }),
       }
     )
@@ -148,7 +151,7 @@ async function sendNotification(message) {
     const data = await response.json()
     saveLastMessage(data.result)
 
-    console.log("🟢 Notification sent.")
+    console.log(isTimeChanged ? "🟢 Notification sent." : "🟢 Notification updated.")
   } catch (error) {
     console.log("🔴 Notification not sent.", error.message)
     deleteLastMessage()
@@ -161,7 +164,8 @@ async function run() {
   const isScheduled = checkIsScheduled(info)
   if (isOutage && !isScheduled) {
     const message = generateMessage(info)
-    await sendNotification(message)
+    const { end_date } = info?.data?.[HOUSE] || {}
+    await sendNotification(message, end_date)
   }
 }
 
