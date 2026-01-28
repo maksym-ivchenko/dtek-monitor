@@ -149,9 +149,15 @@ async function sendNotification(message, currentEndDate) {
     )
 
     const data = await response.json()
-    saveLastMessage(data.result)
 
-    console.log(isTimeChanged ? "🟢 Notification sent." : "🟢 Notification updated.")
+    if (data.ok) {
+      saveLastMessage({
+        message_id: data.result.message_id,
+        date: data.result.date,
+        end_date: currentEndDate
+      })
+      console.log(isTimeChanged ? "🟢 Notification sent." : "🟢 Notification updated.")
+    }
   } catch (error) {
     console.log("🔴 Notification not sent.", error.message)
     deleteLastMessage()
