@@ -40,6 +40,7 @@ export function saveLastMessage({ date, message_id } = {}) {
     JSON.stringify({
       message_id,
       date,
+      end_date,
     })
   )
 }
