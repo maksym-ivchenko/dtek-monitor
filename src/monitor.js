@@ -88,7 +88,7 @@ function checkIsScheduled(info) {
     throw Error("❌ Power outage info missed.")
   }
 
-  const { sub_type } = info?.data?.[HOUSE] || {}
+  const { sub_type = "" } = info?.data?.[HOUSE] || {}
   const isScheduled = !sub_type.toLowerCase().includes("екстрен") && !sub_type.toLowerCase().includes("аварій")
 
   isScheduled
@@ -96,6 +96,28 @@ function checkIsScheduled(info) {
     : console.log("⚠️ Power outage not scheduled!")
 
   return isScheduled
+}
+
+function checkSubTypeReason(info) {
+  console.log("🌀 Checking sub_type_reason...")
+
+  if (!info?.data) {
+    throw Error("❌ Power outage info missed.")
+  }
+
+  const { sub_type_reason = [] } = info?.data?.[HOUSE] || {}
+
+  const hasNonStandardReason = !(
+    Array.isArray(sub_type_reason) &&
+    sub_type_reason.length === 1 &&
+    sub_type_reason[0] === "GPV35.1"
+  )
+
+  hasNonStandardReason
+    ? console.log(`🚨 Non-standard sub_type_reason: ${JSON.stringify(sub_type_reason)}`)
+    : console.log("⚡️ Standard sub_type_reason: GPV35.1")
+
+  return hasNonStandardReason
 }
 
 function generateMessage(info) {
@@ -118,6 +140,13 @@ function generateMessage(info) {
     "\n",
     `🔄 <i>Дата оновлення інформації – ${updateTimestamp}</i>`
   ].join("\n")
+}
+
+function generateSubTypeReasonMessage(info) {
+  const { sub_type_reason = [] } = info?.data?.[HOUSE] || {}
+  const reason = sub_type_reason.join(", ") || "невідома"
+
+  return `🔄 <b>Змінилась група відключень на ${reason}</b>`
 }
 
 async function sendNotification(message, currentEndDate) {
@@ -164,14 +193,54 @@ async function sendNotification(message, currentEndDate) {
   }
 }
 
+async function sendSubTypeReasonNotification(message) {
+  if (!TELEGRAM_BOT_TOKEN)
+    throw Error("❌ Missing telegram bot token or chat id.")
+  if (!TELEGRAM_CHAT_ID) throw Error("❌ Missing telegram chat id.")
+
+  console.log("🌀 Sending sub_type_reason notification...")
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+          parse_mode: "HTML",
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    if (!data.ok) {
+      throw Error(data.description || "Telegram API error")
+    }
+
+    console.log("🟢 Sub_type_reason notification sent.")
+  } catch (error) {
+    console.log("🔴 Sub_type_reason notification not sent.", error.message)
+  }
+}
+
 async function run() {
   const info = await getInfo()
   const isOutage = checkIsOutage(info)
   const isScheduled = checkIsScheduled(info)
+  const hasNonStandardReason = checkSubTypeReason(info)
+
   if (isOutage && !isScheduled) {
     const message = generateMessage(info)
     const { end_date } = info?.data?.[HOUSE] || {}
     await sendNotification(message, end_date)
+  }
+
+  if (hasNonStandardReason) {
+    const message = generateSubTypeReasonMessage(info)
+    await sendSubTypeReasonNotification(message)
   }
 }
 
