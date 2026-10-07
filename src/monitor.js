@@ -110,12 +110,12 @@ function checkSubTypeReason(info) {
   const hasNonStandardReason = !(
     Array.isArray(sub_type_reason) &&
     sub_type_reason.length === 1 &&
-    sub_type_reason[0] === "GPV35.1"
+    sub_type_reason[0] === "GPV35.2"
   )
 
   hasNonStandardReason
     ? console.log(`🚨 Non-standard sub_type_reason: ${JSON.stringify(sub_type_reason)}`)
-    : console.log("⚡️ Standard sub_type_reason: GPV35.1")
+    : console.log("⚡️ Standard sub_type_reason: GPV35.2")
 
   return hasNonStandardReason
 }
